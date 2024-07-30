@@ -11,6 +11,8 @@ import base64
 import logging
 from zipfile import ZipFile
 from io import BytesIO
+import subprocess
+import numpy as np
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -68,10 +70,38 @@ def load_whisper_model(model_size: str = "small") -> mlx_whisper.Whisper:
         st.error(f"Failed to load MLX Whisper model: {e}")
         raise
 
+def prepare_audio(audio_path: str) -> mx.array:
+    # Use ffmpeg to convert audio to raw PCM data
+    command = [
+        "ffmpeg",
+        "-i", audio_path,
+        "-f", "s16le",  # 16-bit signed little-endian
+        "-acodec", "pcm_s16le",
+        "-ar", "16000",  # 16 kHz sampling rate
+        "-ac", "1",  # mono
+        "-"  # Output to stdout
+    ]
+    
+    # Run ffmpeg command and capture output
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    audio_data, _ = process.communicate()
+    
+    # Convert bytes to numpy array
+    audio_array = np.frombuffer(audio_data, dtype=np.int16)
+    
+    # Normalize to float32 in range [-1, 1]
+    audio_array = audio_array.astype(np.float32) / 32768.0
+    
+    # Convert to MLX array
+    mlx_array = mx.array(audio_array)
+    
+    return mlx_array
+
 def inference(model: mlx_whisper.Whisper, audio_path: str, task: str) -> Dict[str, Any]:
     try:
         options = {"task": task, "best_of": 5}
-        result = mlx_whisper.transcribe(audio_path, model=model, **options)
+        audio = prepare_audio(audio_path)
+        result = mlx_whisper.transcribe(audio, model=model, **options)
         return result
     except Exception as e:
         logging.error(f"Inference error: {e}")
