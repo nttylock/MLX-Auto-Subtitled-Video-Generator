@@ -39,14 +39,6 @@ def load_lottie_url(url: str) -> Dict[str, Any]:
         logging.error(f"Failed to load Lottie animation: {e}")
         return None
 
-def process_audio(input_file: str, output_file: str) -> None:
-    try:
-        audio = ffmpeg.input(input_file)
-        audio = ffmpeg.output(audio, output_file, acodec="pcm_s16le", ac=1, ar="16k")
-        ffmpeg.run(audio, overwrite_output=True, capture_stdout=True, capture_stderr=True)
-    except ffmpeg.Error as e:
-        logging.error(f"FFmpeg error: {e.stderr.decode()}")
-        raise
 
 def generate_subtitled_video(video: str, audio: str, transcript: str, output: str) -> None:
     try:
@@ -97,11 +89,15 @@ def prepare_audio(audio_path: str) -> mx.array:
     
     return mlx_array
 
+def process_audio(model: mlx_whisper.Whisper, audio: mx.array, task: str) -> Dict[str, Any]:
+    options = {"task": task}
+    results = model.transcribe(audio, **options)
+    return results
+
 def inference(model: mlx_whisper.Whisper, audio_path: str, task: str) -> Dict[str, Any]:
     try:
-        options = {"task": task, "best_of": 5}
         audio = prepare_audio(audio_path)
-        result = mlx_whisper.transcribe(audio, model=model, **options)
+        result = process_audio(model, audio, task)
         return result
     except Exception as e:
         logging.error(f"Inference error: {e}")
