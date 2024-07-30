@@ -2,7 +2,7 @@ import streamlit as st
 from streamlit_lottie import st_lottie
 import mlx.core as mx
 import mlx_whisper
-import ffmpeg
+# import ffmpeg
 import requests
 from typing import List, Dict, Any
 import pathlib
@@ -40,21 +40,21 @@ def load_lottie_url(url: str) -> Dict[str, Any]:
         return None
 
 
-def generate_subtitled_video(video: str, audio: str, transcript: str, output: str) -> None:
-    try:
-        video_file = ffmpeg.input(video)
-        audio_file = ffmpeg.input(audio)
-        ffmpeg.concat(
-            video_file.filter("subtitles", transcript),
-            audio_file,
-            v=1,
-            a=1
-        ).output(output).run(quiet=True, overwrite_output=True)
-    except ffmpeg.Error as e:
-        logging.error(f"FFmpeg error while generating subtitled video: {e.stderr.decode()}")
-        raise
+# def generate_subtitled_video(video: str, audio: str, transcript: str, output: str) -> None:
+#     try:
+#         video_file = ffmpeg.input(video)
+#         audio_file = ffmpeg.input(audio)
+#         ffmpeg.concat(
+#             video_file.filter("subtitles", transcript),
+#             audio_file,
+#             v=1,
+#             a=1
+#         ).output(output).run(quiet=True, overwrite_output=True)
+#     except ffmpeg.Error as e:
+#         logging.error(f"FFmpeg error while generating subtitled video: {e.stderr.decode()}")
+#         raise
 
-def load_whisper_model(model_size: str = "small") -> mlx_whisper.Whisper:
+def load_whisper_model(model_size: str = "small"):
     try:
         model = mlx_whisper.load_model(model_size)
         return model
@@ -89,12 +89,12 @@ def prepare_audio(audio_path: str) -> mx.array:
     
     return mlx_array
 
-def process_audio(model: mlx_whisper.Whisper, audio: mx.array, task: str) -> Dict[str, Any]:
+def process_audio(model, audio: mx.array, task: str) -> Dict[str, Any]:
     options = {"task": task}
     results = model.transcribe(audio, **options)
     return results
 
-def inference(model: mlx_whisper.Whisper, audio_path: str, task: str) -> Dict[str, Any]:
+def inference(model, audio_path: str, task: str) -> Dict[str, Any]:
     try:
         audio = prepare_audio(audio_path)
         result = process_audio(model, audio, task)
@@ -154,13 +154,14 @@ def main():
                 
                 # Process audio
                 audio_path = str(SAVE_DIR / "output.wav")
-                process_audio(input_path, audio_path)
                 
                 # Load MLX Whisper model
                 model = load_whisper_model(MODEL_NAME)
                 
                 # Perform inference
-                results = inference(model, audio_path, task.lower())
+                audio = prepare_audio(audio_path)
+                options = {"task": task.lower()}
+                results = model.transcribe(audio, **options)
                 
                 # Display results
                 col3, col4 = st.columns(2)
@@ -175,7 +176,7 @@ def main():
                 
                 # Generate subtitled video
                 output_video_path = str(SAVE_DIR / "final.mp4")
-                generate_subtitled_video(input_path, audio_path, srt_path, output_video_path)
+                # generate_subtitled_video(input_path, audio_path, srt_path, output_video_path)
                 
                 with col4:
                     st.video(output_video_path)
