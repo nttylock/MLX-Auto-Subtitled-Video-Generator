@@ -60,6 +60,14 @@ def generate_subtitled_video(video: str, audio: str, transcript: str, output: st
         logging.error(f"FFmpeg error while generating subtitled video: {e.stderr.decode()}")
         raise
 
+def load_whisper_model(model_size: str = "small") -> mlx_whisper.Whisper:
+    try:
+        model = mlx_whisper.load_model(model_size)
+        return model
+    except Exception as e:
+        st.error(f"Failed to load MLX Whisper model: {e}")
+        raise
+
 def inference(model: mlx_whisper.Whisper, audio_path: str, task: str) -> Dict[str, Any]:
     try:
         options = {"task": task, "best_of": 5}
@@ -123,7 +131,7 @@ def main():
                 process_audio(input_path, audio_path)
                 
                 # Load MLX Whisper model
-                model = mlx_whisper.load_model(MODEL_NAME)
+                model = load_whisper_model(MODEL_NAME)
                 
                 # Perform inference
                 results = inference(model, audio_path, task.lower())
