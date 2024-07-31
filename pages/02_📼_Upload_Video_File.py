@@ -19,6 +19,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 st.set_page_config(page_title="Auto Subtitled Video Generator", page_icon=":movie_camera:", layout="wide")
 
 # Define constants
+TASK_VERBS = {
+    "Transcribe": "Transcribing",
+    "Translate": "Translating"
+}
+
 DEVICE = "mps" if mx.metal.is_available() else "cpu"
 MODEL_NAME = "mlx-community/whisper-large-v3-mlx"
 APP_DIR = pathlib.Path(__file__).parent.absolute()
@@ -37,13 +42,6 @@ def load_lottie_url(url: str) -> Dict[str, Any]:
         logging.error(f"Failed to load Lottie animation: {e}")
         return None
 
-def load_whisper_model(model_name: str = "mlx-community/whisper-small"):
-    try:
-        model = mlx_whisper.load_models.load_model(model_name)
-        return model
-    except Exception as e:
-        st.error(f"Failed to load MLX Whisper model: {e}")
-        raise
 
 def prepare_audio(audio_path: str) -> mx.array:
     command = [
@@ -64,9 +62,14 @@ def prepare_audio(audio_path: str) -> mx.array:
     
     return mx.array(audio_array)
 
-def process_audio(model, audio: mx.array, task: str) -> Dict[str, Any]:
-    options = {"task": task}
-    results = mlx_whisper.transcribe(audio, model=model, **options)
+def process_audio(model_path: str, audio: mx.array, task: str) -> Dict[str, Any]:
+    options = mlx_whisper.decoding.DecodingOptions(task=task)
+    results = mlx_whisper.transcribe(
+        audio,
+        path_or_hf_repo=model_path,
+        fp16=False,
+        options=options
+    )
     return results
 
 def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: str) -> None:
@@ -108,22 +111,21 @@ def main():
         """)
     
     input_file = st.file_uploader("Upload Video File", type=["mp4", "avi", "mov", "mkv"])
-    task = st.selectbox("Select Task", ["Transcribe", "Translate"], index=0)
+    task = st.selectbox("Select Task", list(TASK_VERBS.keys()), index=0)
     
     if input_file and st.button(task):
-        with st.spinner(f"{task}ing the video..."):
+        with st.spinner(f"{TASK_VERBS[task]} the video..."):
             try:
                 # Save uploaded file
                 input_path = str(SAVE_DIR / "input.mp4")
                 with open(input_path, "wb") as f:
                     f.write(input_file.read())
                 
-                # Load MLX Whisper model
-                model = load_whisper_model(MODEL_NAME)
-                
-                # Prepare audio and perform inference
+                # Prepare audio
                 audio = prepare_audio(input_path)
-                results = process_audio(model, audio, task.lower())
+                
+                # Process audio
+                results = process_audio(MODEL_NAME, audio, task.lower())
                 
                 # Display results
                 col3, col4 = st.columns(2)
