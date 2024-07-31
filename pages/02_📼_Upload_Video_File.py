@@ -64,23 +64,27 @@ def prepare_audio(audio_path: str) -> mx.array:
 
 def process_audio(model_path: str, audio: mx.array, task: str) -> Dict[str, Any]:
     logging.info(f"Processing audio with model: {model_path}, task: {task}")
-    options = mlx_whisper.decoding.DecodingOptions(task=task)
-    logging.debug(f"DecodingOptions created: {options}")
+    
     try:
-        results = mlx_whisper.transcribe(
-            audio,
-            path_or_hf_repo=model_path,
-            fp16=False,
-            options=options
-        )
-        logging.info("Transcription completed successfully")
+        if task.lower() == "transcribe":
+            results = mlx_whisper.transcribe(
+                audio,
+                path_or_hf_repo=model_path,
+                fp16=False
+            )
+        elif task.lower() == "translate":
+            results = mlx_whisper.translate(
+                audio,
+                path_or_hf_repo=model_path,
+                fp16=False
+            )
+        else:
+            raise ValueError(f"Unsupported task: {task}")
+        
+        logging.info(f"{task.capitalize()} completed successfully")
         return results
-    except TypeError as e:
-        logging.error(f"TypeError in mlx_whisper.transcribe: {e}")
-        logging.debug(f"Arguments passed to transcribe: audio shape={audio.shape}, path_or_hf_repo={model_path}, fp16=False, options={options}")
-        raise
     except Exception as e:
-        logging.error(f"Unexpected error in mlx_whisper.transcribe: {e}")
+        logging.error(f"Unexpected error in mlx_whisper.{task}: {e}")
         raise
 
 def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: str) -> None:
