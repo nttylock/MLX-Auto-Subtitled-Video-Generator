@@ -63,14 +63,25 @@ def prepare_audio(audio_path: str) -> mx.array:
     return mx.array(audio_array)
 
 def process_audio(model_path: str, audio: mx.array, task: str) -> Dict[str, Any]:
+    logging.info(f"Processing audio with model: {model_path}, task: {task}")
     options = mlx_whisper.decoding.DecodingOptions(task=task)
-    results = mlx_whisper.transcribe(
-        audio,
-        path_or_hf_repo=model_path,
-        fp16=False,
-        options=options
-    )
-    return results
+    logging.debug(f"DecodingOptions created: {options}")
+    try:
+        results = mlx_whisper.transcribe(
+            audio,
+            path_or_hf_repo=model_path,
+            fp16=False,
+            options=options
+        )
+        logging.info("Transcription completed successfully")
+        return results
+    except TypeError as e:
+        logging.error(f"TypeError in mlx_whisper.transcribe: {e}")
+        logging.debug(f"Arguments passed to transcribe: audio shape={audio.shape}, path_or_hf_repo={model_path}, fp16=False, options={options}")
+        raise
+    except Exception as e:
+        logging.error(f"Unexpected error in mlx_whisper.transcribe: {e}")
+        raise
 
 def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: str) -> None:
     with open(output_file, "w", encoding="utf-8") as f:
