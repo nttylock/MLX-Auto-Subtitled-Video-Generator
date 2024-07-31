@@ -2,7 +2,6 @@ import streamlit as st
 from streamlit_lottie import st_lottie
 import mlx.core as mx
 import mlx_whisper
-# import ffmpeg
 import requests
 from typing import List, Dict, Any
 import pathlib
@@ -10,7 +9,6 @@ import os
 import base64
 import logging
 from zipfile import ZipFile
-from io import BytesIO
 import subprocess
 import numpy as np
 
@@ -22,7 +20,7 @@ st.set_page_config(page_title="Auto Subtitled Video Generator", page_icon=":movi
 
 # Define constants
 DEVICE = "mps" if mx.metal.is_available() else "cpu"
-MODEL_NAME = "mlx-community/whisper-small"
+MODEL_NAME = "mlx-community/whisper-large-v3-mlx"
 APP_DIR = pathlib.Path(__file__).parent.absolute()
 LOCAL_DIR = APP_DIR / "local_video"
 LOCAL_DIR.mkdir(exist_ok=True)
@@ -39,69 +37,37 @@ def load_lottie_url(url: str) -> Dict[str, Any]:
         logging.error(f"Failed to load Lottie animation: {e}")
         return None
 
-
-# def generate_subtitled_video(video: str, audio: str, transcript: str, output: str) -> None:
-#     try:
-#         video_file = ffmpeg.input(video)
-#         audio_file = ffmpeg.input(audio)
-#         ffmpeg.concat(
-#             video_file.filter("subtitles", transcript),
-#             audio_file,
-#             v=1,
-#             a=1
-#         ).output(output).run(quiet=True, overwrite_output=True)
-#     except ffmpeg.Error as e:
-#         logging.error(f"FFmpeg error while generating subtitled video: {e.stderr.decode()}")
-#         raise
-
-def load_whisper_model(model_size: str = "small"):
+def load_whisper_model(model_name: str = "mlx-community/whisper-small"):
     try:
-        model = mlx_whisper.load_model(model_size)
+        model = mlx_whisper.load_models.load_model(model_name)
         return model
     except Exception as e:
         st.error(f"Failed to load MLX Whisper model: {e}")
         raise
 
 def prepare_audio(audio_path: str) -> mx.array:
-    # Use ffmpeg to convert audio to raw PCM data
     command = [
         "ffmpeg",
         "-i", audio_path,
-        "-f", "s16le",  # 16-bit signed little-endian
+        "-f", "s16le",
         "-acodec", "pcm_s16le",
-        "-ar", "16000",  # 16 kHz sampling rate
-        "-ac", "1",  # mono
-        "-"  # Output to stdout
+        "-ar", "16000",
+        "-ac", "1",
+        "-"
     ]
     
-    # Run ffmpeg command and capture output
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     audio_data, _ = process.communicate()
     
-    # Convert bytes to numpy array
     audio_array = np.frombuffer(audio_data, dtype=np.int16)
-    
-    # Normalize to float32 in range [-1, 1]
     audio_array = audio_array.astype(np.float32) / 32768.0
     
-    # Convert to MLX array
-    mlx_array = mx.array(audio_array)
-    
-    return mlx_array
+    return mx.array(audio_array)
 
 def process_audio(model, audio: mx.array, task: str) -> Dict[str, Any]:
     options = {"task": task}
-    results = model.transcribe(audio, **options)
+    results = mlx_whisper.transcribe(audio, model=model, **options)
     return results
-
-def inference(model, audio_path: str, task: str) -> Dict[str, Any]:
-    try:
-        audio = prepare_audio(audio_path)
-        result = process_audio(model, audio, task)
-        return result
-    except Exception as e:
-        logging.error(f"Inference error: {e}")
-        raise
 
 def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: str) -> None:
     with open(output_file, "w", encoding="utf-8") as f:
@@ -152,16 +118,12 @@ def main():
                 with open(input_path, "wb") as f:
                     f.write(input_file.read())
                 
-                # Process audio
-                audio_path = str(SAVE_DIR / "output.wav")
-                
                 # Load MLX Whisper model
                 model = load_whisper_model(MODEL_NAME)
                 
-                # Perform inference
-                audio = prepare_audio(audio_path)
-                options = {"task": task.lower()}
-                results = model.transcribe(audio, **options)
+                # Prepare audio and perform inference
+                audio = prepare_audio(input_path)
+                results = process_audio(model, audio, task.lower())
                 
                 # Display results
                 col3, col4 = st.columns(2)
@@ -174,22 +136,18 @@ def main():
                 write_subtitles(results["segments"], "vtt", vtt_path)
                 write_subtitles(results["segments"], "srt", srt_path)
                 
-                # Generate subtitled video
-                output_video_path = str(SAVE_DIR / "final.mp4")
-                # generate_subtitled_video(input_path, audio_path, srt_path, output_video_path)
-                
                 with col4:
-                    st.video(output_video_path)
+                    st.text_area("Transcription", results["text"], height=300)
                     st.success(f"{task} completed successfully!")
                 
-                # Create zip file with all outputs
-                zip_path = str(SAVE_DIR / "transcripts_and_video.zip")
+                # Create zip file with outputs
+                zip_path = str(SAVE_DIR / "transcripts.zip")
                 with ZipFile(zip_path, "w") as zipf:
-                    for file in [vtt_path, srt_path, output_video_path]:
+                    for file in [vtt_path, srt_path]:
                         zipf.write(file, os.path.basename(file))
                 
                 # Create download link
-                st.markdown(create_download_link(zip_path, "Download Transcripts and Video"), unsafe_allow_html=True)
+                st.markdown(create_download_link(zip_path, "Download Transcripts"), unsafe_allow_html=True)
             
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
