@@ -16,6 +16,8 @@ This Streamlit application allows users to upload video files and generate accur
 - An Apple Silicon (M series) Mac
 - Conda package manager
 
+If you don't have Conda installed on your Mac, you can follow the [Ultimate Guide to Installing Miniforge for AI Development on M1 Macs](https://www.rayfernando.ai/ultimate-guide-installing-miniforge-ai-development-m1-macs) for a comprehensive setup process.
+
 ### Installation
 
 1. Clone the repository:
@@ -39,6 +41,13 @@ This Streamlit application allows users to upload video files and generate accur
    ```
    brew install ffmpeg
    ```
+
+   Note: If you don't have Homebrew installed, you can install it by running the following command in your terminal:
+   ```
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   ```
+   
+   After installation, follow the instructions provided in the terminal to add Homebrew to your PATH. For more information about Homebrew, visit [brew.sh](https://brew.sh/).
 
 ### Running the Application
 
