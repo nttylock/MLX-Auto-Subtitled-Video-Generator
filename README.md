@@ -1,22 +1,91 @@
-## Auto-Subtitled-Video-Generator
+# Apple MLX Powered Video Transcription
 
-![Python](https://img.shields.io/badge/Python-FFD43B?style=for-the-badge&logo=python&logoColor=blue)
-![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=Streamlit&logoColor=white)
-![OpenAI](https://camo.githubusercontent.com/ea872adb9aba9cf6b4e976262f6d4b83b97972d0d5a7abccfde68eb2ae55325f/68747470733a2f2f696d672e736869656c64732e696f2f7374617469632f76313f7374796c653d666f722d7468652d6261646765266d6573736167653d4f70656e414926636f6c6f723d343132393931266c6f676f3d4f70656e4149266c6f676f436f6c6f723d464646464646266c6162656c3d)
+This Streamlit application allows users to upload video files and generate accurate transcripts using Apple's MLX framework.
+### Planned Features (Work in Progress)
 
-#### About this project
-- This project is an automatic speech recognition application that takes a YouTube video link or a video file as input to generate a video with subtitles.
-- You can also upload an audio file to generate a transcript as .txt, .vtt, .srt files.
-- The application performs 2 tasks:
-  - Detects the language, transcribes the input video in its original language.
-  - Detects the language, translates it into English and then transcribes.
-- Downloaded the video of the input link using [pytube](https://github.com/pytube/pytube).
-- Generated a transcription of the video using the [OpenAI Whisper](https://openai.com/blog/whisper) model.
-- Saved the transcriptions as .txt, .vtt and .srt files.
-- Generated a subtitled version of the input video using [ffmpeg](https://github.com/FFmpeg).
-- Displayed the original video and the subtitled video side by side.
-- Built a multipage web app using [Streamlit](https://streamlit.io) and hosted on [HuggingFace Spaces](https://huggingface.co/spaces).
-- You can download the generated .txt, .vtt, .srt files and the subtitled video.
-- You can use the app via this [link](https://huggingface.co/spaces/BatuhanYilmaz/Auto-Subtitled-Video-Generator).
+- Translation to English and transcription.
 
-![](auto-sub.gif)
+## Important Note
+
+⚠️ This application is designed to run on Apple Silicon (M series) Macs only. It utilizes the MLX framework, which is optimized for Apple's custom chips.
+
+## Getting Started
+
+### Prerequisites
+
+- An Apple Silicon (M series) Mac
+- Conda package manager
+
+### Installation
+
+1. Clone the repository:
+   ```
+   git clone <repository-url>
+   cd <repository-directory>
+   ```
+
+2. Create a new Conda environment with Python 3.12:
+   ```
+   conda create -n mlx-whisper python=3.12
+   conda activate mlx-whisper
+   ```
+
+3. Install the required dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+4. Install FFmpeg (required for audio processing):
+   ```
+   brew install ffmpeg
+   ```
+
+### Running the Application
+
+To run the Streamlit application, use the following command:
+
+`streamlit run mlx_whisper_transcribe.py`
+
+
+## Features
+
+- Upload video files (MP4, AVI, MOV, MKV)
+- Choose between transcription and translation tasks
+- Select from multiple Whisper models
+- Generate VTT and SRT subtitle files
+- Download transcripts as a ZIP file
+
+## How It Works
+
+1. Upload a video file
+2. Select the task (Transcribe or Translate)
+3. Choose a Whisper model
+4. Click the task button to process the video
+5. View the results and download the generated transcripts
+
+## Models
+
+The application supports the following Whisper models:
+
+- Tiny (Q4)
+- Large v3
+- Small English (Q4)
+- Small (FP32)
+
+Each model has different capabilities and processing speeds. Experiment with different models to find the best balance between accuracy and performance for your needs.
+
+
+## Troubleshooting
+
+If you encounter any issues, please check the following:
+
+- Ensure you're using an Apple Silicon Mac
+- Verify that all dependencies are correctly installed
+- Check the console output for any error messages
+
+For any persistent problems, please open an issue in the repository.
+
+
+## Acknowledgements
+
+This project is a fork of the [original Auto-Subtitled Video Generator](https://github.com/BatuhanYilmaz26/Auto-Subtitled-Video-Generator) by Batuhan Yilmaz. I deeply appreciate the contribution to the open-source community.
