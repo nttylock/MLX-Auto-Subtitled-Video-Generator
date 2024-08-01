@@ -25,7 +25,12 @@ TASK_VERBS = {
 }
 
 DEVICE = "mps" if mx.metal.is_available() else "cpu"
-MODEL_NAME = "mlx-community/whisper-large-v3-mlx"
+MODELS = {
+    "Tiny (Q4)": "mlx-community/whisper-tiny-mlx-q4",
+    "Large v3": "mlx-community/whisper-large-v3-mlx",
+    "Small English (Q4)": "mlx-community/whisper-small.en-mlx-q4",
+    "Small (FP32)": "mlx-community/whisper-small-mlx-fp32"
+}
 APP_DIR = pathlib.Path(__file__).parent.absolute()
 LOCAL_DIR = APP_DIR / "local_video"
 LOCAL_DIR.mkdir(exist_ok=True)
@@ -128,8 +133,12 @@ def main():
     input_file = st.file_uploader("Upload Video File", type=["mp4", "avi", "mov", "mkv"])
     task = st.selectbox("Select Task", list(TASK_VERBS.keys()), index=0)
     
+    # Add model selection dropdown
+    selected_model = st.selectbox("Select Whisper Model", list(MODELS.keys()), index=0)
+    MODEL_NAME = MODELS[selected_model]
+    
     if input_file and st.button(task):
-        with st.spinner(f"{TASK_VERBS[task]} the video..."):
+        with st.spinner(f"{TASK_VERBS[task]} the video using {selected_model} model..."):
             try:
                 # Save uploaded file
                 input_path = str(SAVE_DIR / "input.mp4")
@@ -155,7 +164,7 @@ def main():
                 
                 with col4:
                     st.text_area("Transcription", results["text"], height=300)
-                    st.success(f"{task} completed successfully!")
+                    st.success(f"{task} completed successfully using {selected_model} model!")
                 
                 # Create zip file with outputs
                 zip_path = str(SAVE_DIR / "transcripts.zip")
