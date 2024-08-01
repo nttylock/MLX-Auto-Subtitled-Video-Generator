@@ -75,13 +75,15 @@ def process_audio(model_path: str, audio: mx.array, task: str) -> Dict[str, Any]
             results = mlx_whisper.transcribe(
                 audio,
                 path_or_hf_repo=model_path,
-                fp16=False
+                fp16=False,
+                verbose=True
             )
         elif task.lower() == "translate":
             results = mlx_whisper.translate(
                 audio,
                 path_or_hf_repo=model_path,
-                fp16=False
+                fp16=False,
+                verbose=True
             )
         else:
             raise ValueError(f"Unsupported task: {task}")
@@ -123,11 +125,17 @@ def main():
             st_lottie(lottie)
     
     with col2:
-        st.write("""
-        ## Auto Subtitled Video Generator 
-        ##### Upload a video file and get a video with subtitles.
-        ###### ➠ If you want to transcribe the video in its original language, select the task as "Transcribe"
-        ###### ➠ If you want to translate the subtitles to English, select the task as "Translate"
+        st.markdown("""
+            ## Apple MLX Powered Video Transcription
+
+            Upload your video and get:
+            - Accurate transcripts (SRT/VTT files)
+            - Optional English translation
+            - Lightning-fast processing
+
+            ### Choose your task
+            - 🎙️ Transcribe: Capture spoken words in the original language
+            - 🌍 Translate: Convert speech to English subtitles
         """)
     
     input_file = st.file_uploader("Upload Video File", type=["mp4", "avi", "mov", "mkv"])
