@@ -22,13 +22,13 @@ If you don't have Conda installed on your Mac, you can follow the [Ultimate Guid
 
 1. Clone the repository:
    ```
-   git clone <repository-url>
-   cd <repository-directory>
+   git clone https://github.com/RayFernando1337/MLX-Auto-Subtitled-Video-Generator.git;
+   cd MLX-Auto-Subtitled-Video-Generator
    ```
 
 2. Create a new Conda environment with Python 3.12:
    ```
-   conda create -n mlx-whisper python=3.12
+   conda create -n mlx-whisper python=3.12;
    conda activate mlx-whisper
    ```
 
