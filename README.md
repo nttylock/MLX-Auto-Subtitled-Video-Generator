@@ -1,6 +1,9 @@
 # Apple MLX Powered Video Transcription
 
 This Streamlit application allows users to upload video files and generate accurate transcripts using Apple's MLX framework.
+
+[Watch the demo video](https://github.com/user-attachments/assets/937ad360-6df2-4ea7-a3d0-6d9b22a6404a)
+
 ### Planned Features (Work in Progress)
 
 - Translation to English and transcription.
