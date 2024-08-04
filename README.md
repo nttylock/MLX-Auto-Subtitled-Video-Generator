@@ -2,6 +2,10 @@
 
 This Streamlit application allows users to upload video files and generate accurate transcripts using Apple's MLX framework.
 
+Follow me on X: [@RayFernando1337](https://x.com/rayfernando1337/)
+
+YouTube: [@RayFernando1337](https://www.youtube.com/@rayfernando1337)
+
 [Watch the demo video](https://github.com/user-attachments/assets/937ad360-6df2-4ea7-a3d0-6d9b22a6404a)
 
 ### Planned Features (Work in Progress)
