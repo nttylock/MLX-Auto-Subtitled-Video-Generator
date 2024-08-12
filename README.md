@@ -8,9 +8,7 @@ YouTube: [@RayFernando1337](https://www.youtube.com/@rayfernando1337)
 
 [Watch the demo video](https://github.com/user-attachments/assets/937ad360-6df2-4ea7-a3d0-6d9b22a6404a)
 
-### Planned Features (Work in Progress)
 
-- Translation to English and transcription.
 
 ## Important Note
 
@@ -87,9 +85,19 @@ The application supports the following Whisper models:
 - Large v3
 - Small English (Q4)
 - Small (FP32)
+- Distil Large v3 (New!)
 
 Each model has different capabilities and processing speeds. Experiment with different models to find the best balance between accuracy and performance for your needs.
 
+### New Model: Distil Large v3
+
+The newly added Distil Large v3 model offers significant performance improvements:
+
+- Runs approximately 40 times faster than real-time on M1 Max chips
+- Can transcribe 12 minutes of audio in just 18 seconds
+- Provides a great balance between speed and accuracy
+
+This model is particularly useful for processing longer videos or when you need quick results without sacrificing too much accuracy.
 
 ## Troubleshooting
 
