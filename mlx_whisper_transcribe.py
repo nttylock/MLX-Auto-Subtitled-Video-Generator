@@ -29,7 +29,8 @@ MODELS = {
     "Tiny (Q4)": "mlx-community/whisper-tiny-mlx-q4",
     "Large v3": "mlx-community/whisper-large-v3-mlx",
     "Small English (Q4)": "mlx-community/whisper-small.en-mlx-q4",
-    "Small (FP32)": "mlx-community/whisper-small-mlx-fp32"
+    "Small (FP32)": "mlx-community/whisper-small-mlx-fp32",
+    "Distil Large v3": "mlx-community/distil-whisper-large-v3"  # New model added here
 }
 APP_DIR = pathlib.Path(__file__).parent.absolute()
 LOCAL_DIR = APP_DIR / "local_video"
@@ -141,8 +142,13 @@ def main():
     input_file = st.file_uploader("Upload Video File", type=["mp4", "avi", "mov", "mkv"])
     task = st.selectbox("Select Task", list(TASK_VERBS.keys()), index=0)
     
-    # Add model selection dropdown
-    selected_model = st.selectbox("Select Whisper Model", list(MODELS.keys()), index=0)
+    # Add model selection dropdown with tooltip
+    selected_model = st.selectbox(
+        "Select Whisper Model",
+        list(MODELS.keys()),
+        index=0,
+        help="Distil Large v3 is ~40X faster than realtime on M1 Max (transcribes 12 minutes in 18 seconds)"
+    )
     MODEL_NAME = MODELS[selected_model]
     
     if input_file and st.button(task):
