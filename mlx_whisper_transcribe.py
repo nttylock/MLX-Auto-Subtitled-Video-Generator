@@ -19,11 +19,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 st.set_page_config(page_title="Auto Subtitled Video Generator", page_icon=":movie_camera:", layout="wide")
 
 # Define constants
-TASK_VERBS = {
-    "Transcribe": "Transcribing",
-    "Translate": "Translating"
-}
-
 DEVICE = "mps" if mx.metal.is_available() else "cpu"
 MODELS = {
     "Tiny (Q4)": "mlx-community/whisper-tiny-mlx-q4",
@@ -79,13 +74,6 @@ def process_audio(model_path: str, audio: mx.array, task: str) -> Dict[str, Any]
                 fp16=False,
                 verbose=True
             )
-        elif task.lower() == "translate":
-            results = mlx_whisper.translate(
-                audio,
-                path_or_hf_repo=model_path,
-                fp16=False,
-                verbose=True
-            )
         else:
             raise ValueError(f"Unsupported task: {task}")
         
@@ -131,28 +119,36 @@ def main():
 
             Upload your video and get:
             - Accurate transcripts (SRT/VTT files)
-            - Optional English translation
             - Lightning-fast processing
 
-            ### Choose your task
-            - 🎙️ Transcribe: Capture spoken words in the original language
-            - 🌍 Translate: Convert speech to English subtitles
+            🎙️ Transcribe: Capture spoken words in the original language
         """)
     
     input_file = st.file_uploader("Upload Video File", type=["mp4", "avi", "mov", "mkv"])
-    task = st.selectbox("Select Task", list(TASK_VERBS.keys()), index=0)
     
-    # Add model selection dropdown with tooltip
+    # Add model selection dropdown without tooltip
     selected_model = st.selectbox(
         "Select Whisper Model",
         list(MODELS.keys()),
-        index=0,
-        help="Distil Large v3 is ~40X faster than realtime on M1 Max (transcribes 12 minutes in 18 seconds)"
+        index=4
     )
     MODEL_NAME = MODELS[selected_model]
     
-    if input_file and st.button(task):
-        with st.spinner(f"{TASK_VERBS[task]} the video using {selected_model} model..."):
+    # Add information about the Distil Large v3 model
+    if selected_model == "Distil Large v3":
+        st.info("""
+        **Distil Large v3 Model**
+        
+        This new model offers significant performance improvements:
+        - Runs approximately 40 times faster than real-time on M1 Max chips
+        - Can transcribe 12 minutes of audio in just 18 seconds
+        - Provides a great balance between speed and accuracy
+        
+        Ideal for processing longer videos or when you need quick results without sacrificing too much accuracy.
+        """)
+    
+    if input_file and st.button("Transcribe"):
+        with st.spinner(f"Transcribing the video using {selected_model} model..."):
             try:
                 # Save uploaded file
                 input_path = str(SAVE_DIR / "input.mp4")
@@ -163,7 +159,7 @@ def main():
                 audio = prepare_audio(input_path)
                 
                 # Process audio
-                results = process_audio(MODEL_NAME, audio, task.lower())
+                results = process_audio(MODEL_NAME, audio, "transcribe")
                 
                 # Display results
                 col3, col4 = st.columns(2)
@@ -178,7 +174,7 @@ def main():
                 
                 with col4:
                     st.text_area("Transcription", results["text"], height=300)
-                    st.success(f"{task} completed successfully using {selected_model} model!")
+                    st.success(f"Transcription completed successfully using {selected_model} model!")
                 
                 # Create zip file with outputs
                 zip_path = str(SAVE_DIR / "transcripts.zip")

@@ -8,8 +8,6 @@ YouTube: [@RayFernando1337](https://www.youtube.com/@rayfernando1337)
 
 [Watch the demo video](https://github.com/user-attachments/assets/937ad360-6df2-4ea7-a3d0-6d9b22a6404a)
 
-
-
 ## Important Note
 
 ⚠️ This application is designed to run on Apple Silicon (M series) Macs only. It utilizes the MLX framework, which is optimized for Apple's custom chips.
@@ -64,18 +62,16 @@ To run the Streamlit application, use the following command:
 ## Features
 
 - Upload video files (MP4, AVI, MOV, MKV)
-- Choose between transcription and translation tasks
-- Select from multiple Whisper models
+- Transcribe videos using various Whisper models
 - Generate VTT and SRT subtitle files
 - Download transcripts as a ZIP file
 
 ## How It Works
 
 1. Upload a video file
-2. Select the task (Transcribe or Translate)
-3. Choose a Whisper model
-4. Click the task button to process the video
-5. View the results and download the generated transcripts
+2. Choose a Whisper model
+3. Click the "Transcribe" button to process the video
+4. View the results and download the generated transcripts
 
 ## Models
 
