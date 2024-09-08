@@ -11,6 +11,7 @@ import logging
 from zipfile import ZipFile
 import subprocess
 import numpy as np
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -83,20 +84,67 @@ def process_audio(model_path: str, audio: mx.array, task: str) -> Dict[str, Any]
         logging.error(f"Unexpected error in mlx_whisper.{task}: {e}")
         raise
 
+def split_long_caption(text: str, max_chars: int = 42) -> List[str]:
+    sentences = re.split('(?<=[.!?]) +', text)
+    lines = []
+    for sentence in sentences:
+        words = sentence.split()
+        current_line = []
+        current_length = 0
+        for word in words:
+            if current_length + len(word) + (1 if current_line else 0) <= max_chars:
+                current_line.append(word)
+                current_length += len(word) + (1 if current_line else 0)
+            else:
+                if current_line:
+                    lines.append(" ".join(current_line))
+                current_line = [word]
+                current_length = len(word)
+        if current_line:
+            lines.append(" ".join(current_line))
+    return lines
+
 def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: str) -> None:
     with open(output_file, "w", encoding="utf-8") as f:
         if format == "vtt":
             f.write("WEBVTT\n\n")
-            for segment in segments:
-                f.write(f"{segment['start']:.3f} --> {segment['end']:.3f}\n")
-                f.write(f"{segment['text'].strip()}\n\n")
-        elif format == "srt":
-            for i, segment in enumerate(segments, start=1):
-                f.write(f"{i}\n")
-                start = f"{int(segment['start'] // 3600):02d}:{int(segment['start'] % 3600 // 60):02d}:{segment['start'] % 60:06.3f}"
-                end = f"{int(segment['end'] // 3600):02d}:{int(segment['end'] % 3600 // 60):02d}:{segment['end'] % 60:06.3f}"
-                f.write(f"{start.replace('.', ',')} --> {end.replace('.', ',')}\n")
-                f.write(f"{segment['text'].strip()}\n\n")
+        
+        for i, segment in enumerate(segments, start=1):
+            start = segment['start']
+            end = segment['end']
+            text = segment['text'].strip()
+            
+            # Split long captions
+            caption_lines = split_long_caption(text)
+            
+            # Calculate duration for each line
+            total_duration = max(end - start, 0.001)  # Ensure minimum duration
+            words_per_minute = 160
+            chars_per_word = 5  # Approximate average
+            chars_per_minute = words_per_minute * chars_per_word
+            chars_per_second = chars_per_minute / 60
+            
+            min_duration = 1.0  # Minimum duration in seconds
+            max_duration = 7.0  # Maximum duration in seconds
+            
+            for j in range(0, len(caption_lines), 2):
+                two_lines = caption_lines[j:j+2]
+                line_text = "\n".join(two_lines)
+                line_chars = sum(len(line) for line in two_lines)
+                
+                line_duration = max(min(line_chars / chars_per_second, max_duration), min_duration)
+                line_start = start + (j / len(caption_lines)) * total_duration
+                line_end = min(line_start + line_duration, end)
+                
+                if format == "vtt":
+                    f.write(f"{line_start:.3f} --> {line_end:.3f}\n")
+                    f.write(f"{line_text}\n\n")
+                elif format == "srt":
+                    f.write(f"{i}.{j//2+1}\n")
+                    start_time = f"{int(line_start // 3600):02d}:{int(line_start % 3600 // 60):02d}:{line_start % 60:06.3f}"
+                    end_time = f"{int(line_end // 3600):02d}:{int(line_end % 3600 // 60):02d}:{line_end % 60:06.3f}"
+                    f.write(f"{start_time.replace('.', ',')} --> {end_time.replace('.', ',')}\n")
+                    f.write(f"{line_text}\n\n")
 
 def create_download_link(file_path: str, link_text: str) -> str:
     with open(file_path, "rb") as f:
@@ -161,29 +209,33 @@ def main():
                 # Process audio
                 results = process_audio(MODEL_NAME, audio, "transcribe")
                 
+                # Write subtitles
+                vtt_path = str(SAVE_DIR / "transcript.vtt")
+                srt_path = str(SAVE_DIR / "transcript.srt")
+                try:
+                    write_subtitles(results["segments"], "vtt", vtt_path)
+                    write_subtitles(results["segments"], "srt", srt_path)
+                except Exception as subtitle_error:
+                    st.error(f"Error writing subtitles: {str(subtitle_error)}")
+                    logging.exception("Error writing subtitles")
+                else:
+                    # Create zip file with outputs
+                    zip_path = str(SAVE_DIR / "transcripts.zip")
+                    with ZipFile(zip_path, "w") as zipf:
+                        for file in [vtt_path, srt_path]:
+                            zipf.write(file, os.path.basename(file))
+                    
+                    # Create download link
+                    st.markdown(create_download_link(zip_path, "Download Transcripts"), unsafe_allow_html=True)
+                
                 # Display results
                 col3, col4 = st.columns(2)
                 with col3:
                     st.video(input_file)
                 
-                # Write subtitles
-                vtt_path = str(SAVE_DIR / "transcript.vtt")
-                srt_path = str(SAVE_DIR / "transcript.srt")
-                write_subtitles(results["segments"], "vtt", vtt_path)
-                write_subtitles(results["segments"], "srt", srt_path)
-                
                 with col4:
                     st.text_area("Transcription", results["text"], height=300)
                     st.success(f"Transcription completed successfully using {selected_model} model!")
-                
-                # Create zip file with outputs
-                zip_path = str(SAVE_DIR / "transcripts.zip")
-                with ZipFile(zip_path, "w") as zipf:
-                    for file in [vtt_path, srt_path]:
-                        zipf.write(file, os.path.basename(file))
-                
-                # Create download link
-                st.markdown(create_download_link(zip_path, "Download Transcripts"), unsafe_allow_html=True)
             
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
