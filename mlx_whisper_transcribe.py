@@ -73,7 +73,8 @@ def process_audio(model_path: str, audio: mx.array, task: str) -> Dict[str, Any]
                 audio,
                 path_or_hf_repo=model_path,
                 fp16=False,
-                verbose=True
+                verbose=True,
+                word_timestamps=True  # Enable word-level timestamps
             )
         else:
             raise ValueError(f"Unsupported task: {task}")
@@ -86,123 +87,51 @@ def process_audio(model_path: str, audio: mx.array, task: str) -> Dict[str, Any]
 
 def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: str) -> None:
     with open(output_file, "w", encoding="utf-8") as f:
-        if format == "vtt":
-            f.write("WEBVTT\n\n")
-        
-        subtitle_count = 1
-        min_duration = 1.5  # Minimum duration in seconds
-        max_duration = 7.0  # Maximum duration in seconds
-        max_chars_per_line = 42  # Maximum characters per line
-        chars_per_second = 15  # Reading speed
-        max_gap = 1.0  # Maximum allowed gap between subtitles in seconds
-        
-        def format_timestamp(seconds: float) -> str:
-            m, s = divmod(seconds, 60)
-            h, m = divmod(m, 60)
-            return f"{int(h):02d}:{int(m):02d}:{s:06.3f}".replace('.', ',')
-
-        def merge_short_segments(segments: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-            merged = []
-            buffer = None
+        if format == "srt":
+            subtitle_count = 1
             for segment in segments:
-                if buffer is None:
-                    buffer = segment.copy()
-                elif segment['start'] - buffer['end'] <= 0.3 and len(buffer['text'] + ' ' + segment['text']) <= max_chars_per_line * 2:
-                    buffer['end'] = segment['end']
-                    buffer['text'] += ' ' + segment['text']
-                else:
-                    merged.append(buffer)
-                    buffer = segment.copy()
-            if buffer:
-                merged.append(buffer)
-            
-            # Check for data loss
-            original_text = ' '.join(seg['text'] for seg in segments)
-            merged_text = ' '.join(seg['text'] for seg in merged)
-            if original_text != merged_text:
-                logging.warning("Potential data loss detected during segment merging")
-            
-            return merged
-
-        def post_process_subtitles(subtitles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-            processed = []
-            for i, subtitle in enumerate(subtitles):
-                if i > 0:
-                    gap = subtitle['start'] - processed[-1]['end']
-                    if gap > max_gap:
-                        # Fill large gaps with an empty subtitle
-                        processed.append({
-                            'start': processed[-1]['end'],
-                            'end': subtitle['start'],
-                            'text': ''
-                        })
-                    elif gap > 0:
-                        # Extend previous subtitle to reduce small gaps
-                        processed[-1]['end'] = subtitle['start']
+                words = segment.get('words', [])
+                if not words:
+                    continue
+                
+                start_time = words[0]['start']
+                end_time = words[-1]['end']
+                text = ' '.join(word['word'] for word in words)
+                
+                # Remove filler sounds
+                text = re.sub(r'\b(um|uh)\b', '', text).strip()
+                
+                # Split into lines of maximum 42 characters
+                lines = []
+                current_line = []
+                current_length = 0
+                for word in text.split():
+                    if current_length + len(word) + 1 > 42:
+                        lines.append(' '.join(current_line))
+                        current_line = [word]
+                        current_length = len(word)
+                    else:
+                        current_line.append(word)
+                        current_length += len(word) + 1
+                if current_line:
+                    lines.append(' '.join(current_line))
                 
                 # Ensure minimum duration
-                if subtitle['end'] - subtitle['start'] < min_duration:
-                    subtitle['end'] = subtitle['start'] + min_duration
+                duration = end_time - start_time
+                min_duration = max(len(text) / 21, 1.5)  # At least 1.5 seconds or 21 characters per second
+                if duration < min_duration:
+                    end_time = start_time + min_duration
                 
-                processed.append(subtitle)
-            
-            return processed
-
-        merged_segments = merge_short_segments(segments)
-        processed_segments = post_process_subtitles(merged_segments)
-
-        for segment in processed_segments:
-            start = segment['start']
-            end = segment['end']
-            text = segment['text'].strip()
-
-            # Split long text into multiple subtitles if necessary
-            words = text.split()
-            lines = []
-            current_line = []
-            current_length = 0
-
-            for word in words:
-                if current_length + len(word) + (1 if current_line else 0) <= max_chars_per_line:
-                    current_line.append(word)
-                    current_length += len(word) + (1 if current_line else 0)
-                else:
-                    if current_line:
-                        lines.append(" ".join(current_line))
-                    current_line = [word]
-                    current_length = len(word)
-
-            if current_line:
-                lines.append(" ".join(current_line))
-
-            for i in range(0, len(lines), 2):
-                subtitle_text = "\n".join(lines[i:i+2])
-                char_count = sum(len(line) for line in lines[i:i+2])
-                
-                content_based_duration = char_count / chars_per_second
-                subtitle_duration = min(max(content_based_duration, min_duration), max_duration, end - start)
-                
-                subtitle_end = min(start + subtitle_duration, end)
-
-                if format == "vtt":
-                    f.write(f"{start:.3f} --> {subtitle_end:.3f}\n")
-                    f.write(f"{subtitle_text}\n\n")
-                elif format == "srt":
-                    f.write(f"{subtitle_count}\n")
-                    f.write(f"{format_timestamp(start)} --> {format_timestamp(subtitle_end)}\n")
-                    f.write(f"{subtitle_text}\n\n")
+                f.write(f"{subtitle_count}\n")
+                f.write(f"{format_timestamp(start_time)} --> {format_timestamp(end_time)}\n")
+                f.write('\n'.join(lines) + "\n\n")
                 
                 subtitle_count += 1
-                start = subtitle_end
 
-                if start >= end:
-                    break
-
-    # After processing all segments
-    original_text = ' '.join(seg['text'] for seg in segments)
-    final_text = ' '.join(seg['text'] for seg in processed_segments)
-    if original_text != final_text:
-        logging.warning("Potential data loss or word order change detected in final output")
+def format_timestamp(seconds: float) -> str:
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    return f"{int(h):02d}:{int(m):02d}:{s:06.3f}".replace('.', ',')
 
 def create_download_link(file_path: str, link_text: str) -> str:
     with open(file_path, "rb") as f:
