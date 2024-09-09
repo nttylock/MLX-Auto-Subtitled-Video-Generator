@@ -84,79 +84,75 @@ def process_audio(model_path: str, audio: mx.array, task: str) -> Dict[str, Any]
         logging.error(f"Unexpected error in mlx_whisper.{task}: {e}")
         raise
 
-def split_long_caption(text: str, max_chars: int = 42) -> List[str]:
-    words = text.split()
-    lines = []
-    current_line = []
-    current_length = 0
-
-    for word in words:
-        if current_length + len(word) + (1 if current_line else 0) <= max_chars:
-            current_line.append(word)
-            current_length += len(word) + (1 if current_line else 0)
-        else:
-            if current_line:
-                lines.append(" ".join(current_line))
-            current_line = [word]
-            current_length = len(word)
-
-    if current_line:
-        lines.append(" ".join(current_line))
-
-    return lines
-
 def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: str) -> None:
     with open(output_file, "w", encoding="utf-8") as f:
         if format == "vtt":
             f.write("WEBVTT\n\n")
         
         subtitle_count = 1
-        min_duration = 0.7  # Minimum duration in seconds
+        min_duration = 0.7  # Minimum duration in seconds (increased slightly)
         max_duration = 7.0  # Maximum duration in seconds
         max_chars_per_line = 42  # Maximum characters per line
+        chars_per_second = 21  # Reading speed guideline
         
         def format_timestamp(seconds: float) -> str:
             m, s = divmod(seconds, 60)
             h, m = divmod(m, 60)
             return f"{int(h):02d}:{int(m):02d}:{s:06.3f}".replace('.', ',')
 
-        buffer = []
-        buffer_duration = 0
-        buffer_text = ""
+        def split_text(text: str, max_chars: int) -> List[str]:
+            words = text.split()
+            lines = []
+            current_line = []
+            current_length = 0
 
-        for i, segment in enumerate(segments):
+            for word in words:
+                if current_length + len(word) + (1 if current_line else 0) <= max_chars:
+                    current_line.append(word)
+                    current_length += len(word) + (1 if current_line else 0)
+                else:
+                    if current_line:
+                        lines.append(" ".join(current_line))
+                    current_line = [word]
+                    current_length = len(word)
+
+            if current_line:
+                lines.append(" ".join(current_line))
+
+            return lines
+
+        for segment in segments:
             start = segment['start']
             end = segment['end']
             text = segment['text'].strip()
 
-            buffer.append((start, end, text))
-            buffer_duration += end - start
-            buffer_text += " " + text if buffer_text else text
-
-            if buffer_duration >= min_duration or i == len(segments) - 1:
-                lines = split_long_caption(buffer_text, max_chars_per_line)
+            # Split long text into multiple subtitles if necessary
+            lines = split_text(text, max_chars_per_line)
+            
+            while lines:
+                subtitle_text = "\n".join(lines[:2])  # Take up to 2 lines
+                char_count = sum(len(line) for line in lines[:2])
                 
-                while lines:
-                    subtitle_text = "\n".join(lines[:2])  # Take up to 2 lines
-                    subtitle_duration = min(buffer_duration, max_duration)
-                    
-                    subtitle_start = buffer[0][0]
-                    subtitle_end = subtitle_start + subtitle_duration
+                # Calculate duration based on reading speed and content length
+                content_based_duration = char_count / chars_per_second
+                subtitle_duration = max(min_duration, min(content_based_duration, max_duration, end - start))
+                
+                subtitle_end = min(start + subtitle_duration, end)
 
-                    if format == "vtt":
-                        f.write(f"{subtitle_start:.3f} --> {subtitle_end:.3f}\n")
-                        f.write(f"{subtitle_text}\n\n")
-                    elif format == "srt":
-                        f.write(f"{subtitle_count}\n")
-                        f.write(f"{format_timestamp(subtitle_start)} --> {format_timestamp(subtitle_end)}\n")
-                        f.write(f"{subtitle_text}\n\n")
-                    
-                    subtitle_count += 1
-                    lines = lines[2:]  # Remove the lines we've written
-                    buffer_duration -= subtitle_duration
-                    buffer = [(subtitle_end, buffer[-1][1], "")]  # Keep the last end time
+                if format == "vtt":
+                    f.write(f"{start:.3f} --> {subtitle_end:.3f}\n")
+                    f.write(f"{subtitle_text}\n\n")
+                elif format == "srt":
+                    f.write(f"{subtitle_count}\n")
+                    f.write(f"{format_timestamp(start)} --> {format_timestamp(subtitle_end)}\n")
+                    f.write(f"{subtitle_text}\n\n")
+                
+                subtitle_count += 1
+                lines = lines[2:]  # Remove the lines we've written
+                start = subtitle_end
 
-                buffer_text = ""
+                if start >= end:
+                    break
 
 def create_download_link(file_path: str, link_text: str) -> str:
     with open(file_path, "rb") as f:
