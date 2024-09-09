@@ -90,24 +90,51 @@ def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: st
             f.write("WEBVTT\n\n")
         
         subtitle_count = 1
-        min_duration = 0.7  # Minimum duration in seconds (increased slightly)
+        min_duration = 1.5  # Increased minimum duration in seconds
         max_duration = 7.0  # Maximum duration in seconds
         max_chars_per_line = 42  # Maximum characters per line
-        chars_per_second = 21  # Reading speed guideline
+        chars_per_second = 15  # Reduced reading speed for better readability
         
         def format_timestamp(seconds: float) -> str:
             m, s = divmod(seconds, 60)
             h, m = divmod(m, 60)
             return f"{int(h):02d}:{int(m):02d}:{s:06.3f}".replace('.', ',')
 
-        def split_text(text: str, max_chars: int) -> List[str]:
+        def merge_short_segments(segments: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            merged = []
+            buffer = None
+            for segment in segments:
+                if buffer is None:
+                    buffer = segment.copy()
+                elif segment['start'] - buffer['end'] <= 0.3 and len(buffer['text'] + ' ' + segment['text']) <= max_chars_per_line * 2:
+                    buffer['end'] = segment['end']
+                    buffer['text'] += ' ' + segment['text']
+                else:
+                    merged.append(buffer)
+                    buffer = segment.copy()
+            if buffer:
+                merged.append(buffer)
+            return merged
+
+        merged_segments = merge_short_segments(segments)
+
+        for segment in merged_segments:
+            start = segment['start']
+            end = segment['end']
+            text = segment['text'].strip()
+
+            # Ensure minimum duration
+            if end - start < min_duration:
+                end = start + min_duration
+
+            # Split long text into multiple subtitles if necessary
             words = text.split()
             lines = []
             current_line = []
             current_length = 0
 
             for word in words:
-                if current_length + len(word) + (1 if current_line else 0) <= max_chars:
+                if current_length + len(word) + (1 if current_line else 0) <= max_chars_per_line:
                     current_line.append(word)
                     current_length += len(word) + (1 if current_line else 0)
                 else:
@@ -119,23 +146,12 @@ def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: st
             if current_line:
                 lines.append(" ".join(current_line))
 
-            return lines
-
-        for segment in segments:
-            start = segment['start']
-            end = segment['end']
-            text = segment['text'].strip()
-
-            # Split long text into multiple subtitles if necessary
-            lines = split_text(text, max_chars_per_line)
-            
-            while lines:
-                subtitle_text = "\n".join(lines[:2])  # Take up to 2 lines
-                char_count = sum(len(line) for line in lines[:2])
+            for i in range(0, len(lines), 2):
+                subtitle_text = "\n".join(lines[i:i+2])
+                char_count = sum(len(line) for line in lines[i:i+2])
                 
-                # Calculate duration based on reading speed and content length
                 content_based_duration = char_count / chars_per_second
-                subtitle_duration = max(min_duration, min(content_based_duration, max_duration, end - start))
+                subtitle_duration = min(max(content_based_duration, min_duration), max_duration, end - start)
                 
                 subtitle_end = min(start + subtitle_duration, end)
 
@@ -148,7 +164,6 @@ def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: st
                     f.write(f"{subtitle_text}\n\n")
                 
                 subtitle_count += 1
-                lines = lines[2:]  # Remove the lines we've written
                 start = subtitle_end
 
                 if start >= end:
