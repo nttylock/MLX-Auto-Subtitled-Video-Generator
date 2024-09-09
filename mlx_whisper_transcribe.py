@@ -115,6 +115,13 @@ def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: st
                     buffer = segment.copy()
             if buffer:
                 merged.append(buffer)
+            
+            # Check for data loss
+            original_text = ' '.join(seg['text'] for seg in segments)
+            merged_text = ' '.join(seg['text'] for seg in merged)
+            if original_text != merged_text:
+                logging.warning("Potential data loss detected during segment merging")
+            
             return merged
 
         def post_process_subtitles(subtitles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -190,6 +197,12 @@ def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: st
 
                 if start >= end:
                     break
+
+    # After processing all segments
+    original_text = ' '.join(seg['text'] for seg in segments)
+    final_text = ' '.join(seg['text'] for seg in processed_segments)
+    if original_text != final_text:
+        logging.warning("Potential data loss or word order change detected in final output")
 
 def create_download_link(file_path: str, link_text: str) -> str:
     with open(file_path, "rb") as f:
