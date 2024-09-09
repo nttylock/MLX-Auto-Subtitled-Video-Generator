@@ -90,10 +90,11 @@ def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: st
             f.write("WEBVTT\n\n")
         
         subtitle_count = 1
-        min_duration = 1.5  # Increased minimum duration in seconds
+        min_duration = 1.5  # Minimum duration in seconds
         max_duration = 7.0  # Maximum duration in seconds
         max_chars_per_line = 42  # Maximum characters per line
-        chars_per_second = 15  # Reduced reading speed for better readability
+        chars_per_second = 15  # Reading speed
+        max_gap = 1.0  # Maximum allowed gap between subtitles in seconds
         
         def format_timestamp(seconds: float) -> str:
             m, s = divmod(seconds, 60)
@@ -116,16 +117,37 @@ def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: st
                 merged.append(buffer)
             return merged
 
-        merged_segments = merge_short_segments(segments)
+        def post_process_subtitles(subtitles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            processed = []
+            for i, subtitle in enumerate(subtitles):
+                if i > 0:
+                    gap = subtitle['start'] - processed[-1]['end']
+                    if gap > max_gap:
+                        # Fill large gaps with an empty subtitle
+                        processed.append({
+                            'start': processed[-1]['end'],
+                            'end': subtitle['start'],
+                            'text': ''
+                        })
+                    elif gap > 0:
+                        # Extend previous subtitle to reduce small gaps
+                        processed[-1]['end'] = subtitle['start']
+                
+                # Ensure minimum duration
+                if subtitle['end'] - subtitle['start'] < min_duration:
+                    subtitle['end'] = subtitle['start'] + min_duration
+                
+                processed.append(subtitle)
+            
+            return processed
 
-        for segment in merged_segments:
+        merged_segments = merge_short_segments(segments)
+        processed_segments = post_process_subtitles(merged_segments)
+
+        for segment in processed_segments:
             start = segment['start']
             end = segment['end']
             text = segment['text'].strip()
-
-            # Ensure minimum duration
-            if end - start < min_duration:
-                end = start + min_duration
 
             # Split long text into multiple subtitles if necessary
             words = text.split()
