@@ -84,24 +84,25 @@ def process_audio(model_path: str, audio: mx.array, task: str) -> Dict[str, Any]
         logging.error(f"Unexpected error in mlx_whisper.{task}: {e}")
         raise
 
-def split_long_caption(text: str, max_chars: int = 42) -> List[str]:
-    sentences = re.split('(?<=[.!?]) +', text)
+def split_long_caption(text: str, max_chars: int = 32) -> List[str]:
+    words = text.split()
     lines = []
-    for sentence in sentences:
-        words = sentence.split()
-        current_line = []
-        current_length = 0
-        for word in words:
-            if current_length + len(word) + (1 if current_line else 0) <= max_chars:
-                current_line.append(word)
-                current_length += len(word) + (1 if current_line else 0)
-            else:
-                if current_line:
-                    lines.append(" ".join(current_line))
-                current_line = [word]
-                current_length = len(word)
-        if current_line:
-            lines.append(" ".join(current_line))
+    current_line = []
+    current_length = 0
+
+    for word in words:
+        if current_length + len(word) + (1 if current_line else 0) <= max_chars:
+            current_line.append(word)
+            current_length += len(word) + (1 if current_line else 0)
+        else:
+            if current_line:
+                lines.append(" ".join(current_line))
+            current_line = [word]
+            current_length = len(word)
+
+    if current_line:
+        lines.append(" ".join(current_line))
+
     return lines
 
 def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: str) -> None:
@@ -116,36 +117,22 @@ def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: st
             text = segment['text'].strip()
             
             # Split long captions
-            caption_lines = split_long_caption(text)
+            caption_lines = split_long_caption(text, max_chars=32)  # Adjusted to 32 characters
             
-            # Calculate duration for each line
-            total_duration = max(end - start, 0.001)  # Ensure minimum duration
-            words_per_minute = 160
-            chars_per_word = 5  # Approximate average
-            chars_per_minute = words_per_minute * chars_per_word
-            chars_per_second = chars_per_minute / 60
-            
-            min_duration = 1.0  # Minimum duration in seconds
-            max_duration = 7.0  # Maximum duration in seconds
-            
-            for j in range(0, len(caption_lines), 2):
-                two_lines = caption_lines[j:j+2]
-                line_text = "\n".join(two_lines)
-                line_chars = sum(len(line) for line in two_lines)
-                
-                line_duration = max(min(line_chars / chars_per_second, max_duration), min_duration)
-                line_start = start + (j / len(caption_lines)) * total_duration
-                line_end = min(line_start + line_duration, end)
+            # Process all lines, ensuring no content is lost
+            for i, line in enumerate(caption_lines):
+                line_start = start + (end - start) * (i / len(caption_lines))
+                line_end = start + (end - start) * ((i + 1) / len(caption_lines))
                 
                 if format == "vtt":
                     f.write(f"{line_start:.3f} --> {line_end:.3f}\n")
-                    f.write(f"{line_text}\n\n")
+                    f.write(f"{line}\n\n")
                 elif format == "srt":
                     f.write(f"{subtitle_count}\n")
                     start_time = f"{int(line_start // 3600):02d}:{int(line_start % 3600 // 60):02d}:{line_start % 60:06.3f}"
                     end_time = f"{int(line_end // 3600):02d}:{int(line_end % 3600 // 60):02d}:{line_end % 60:06.3f}"
                     f.write(f"{start_time.replace('.', ',')} --> {end_time.replace('.', ',')}\n")
-                    f.write(f"{line_text}\n\n")
+                    f.write(f"{line}\n\n")
                 
                 subtitle_count += 1
 
