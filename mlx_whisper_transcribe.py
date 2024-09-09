@@ -87,65 +87,71 @@ def process_audio(model_path: str, audio: mx.array, task: str) -> Dict[str, Any]
 
 def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: str, remove_fillers: bool = True) -> None:
     with open(output_file, "w", encoding="utf-8") as f:
-        if format == "srt":
-            subtitle_count = 1
-            for segment in segments:
-                words = segment.get('words', [])
-                if not words:
-                    continue
-                
-                text = ' '.join(word['word'] for word in words)
-                if remove_fillers:
-                    text = re.sub(r'\b(um|uh)\b', '', text).strip()
-                
-                # Split into lines of maximum 42 characters
-                lines = []
-                current_line = []
-                current_length = 0
-                for word in text.split():
-                    if current_length + len(word) + 1 > 42:
-                        lines.append(' '.join(current_line))
-                        current_line = [word]
-                        current_length = len(word)
-                    else:
-                        current_line.append(word)
-                        current_length += len(word) + 1
-                if current_line:
+        if format == "vtt":
+            f.write("WEBVTT\n\n")
+        
+        subtitle_count = 1
+        for segment in segments:
+            words = segment.get('words', [])
+            if not words:
+                continue
+            
+            text = ' '.join(word['word'] for word in words)
+            if remove_fillers:
+                text = re.sub(r'\b(um|uh)\b', '', text).strip()
+            
+            # Split into lines of maximum 42 characters
+            lines = []
+            current_line = []
+            current_length = 0
+            for word in text.split():
+                if current_length + len(word) + 1 > 42:
                     lines.append(' '.join(current_line))
+                    current_line = [word]
+                    current_length = len(word)
+                else:
+                    current_line.append(word)
+                    current_length += len(word) + 1
+            if current_line:
+                lines.append(' '.join(current_line))
+            
+            # Group lines into subtitles with a maximum of 2 lines each
+            for i in range(0, len(lines), 2):
+                subtitle_lines = lines[i:i+2]
+                subtitle_text = '\n'.join(subtitle_lines)
                 
-                # Group lines into subtitles with a maximum of 2 lines each
-                for i in range(0, len(lines), 2):
-                    subtitle_lines = lines[i:i+2]
-                    subtitle_text = '\n'.join(subtitle_lines)
-                    
-                    start_index = sum(len(line.split()) for line in lines[:i])
-                    end_index = min(sum(len(line.split()) for line in lines[:i+2]), len(words))
-                    
-                    start_word = words[start_index]
-                    end_word = words[end_index - 1]
-                    
-                    start_time = start_word['start']
-                    end_time = end_word['end']
-                    
-                    # Ensure minimum duration
-                    duration = end_time - start_time
-                    min_duration = max(len(subtitle_text) / 21, 1.5)  # At least 1.5 seconds or 21 characters per second
-                    if duration < min_duration:
-                        end_time = start_time + min_duration
-                    
+                start_index = sum(len(line.split()) for line in lines[:i])
+                end_index = min(sum(len(line.split()) for line in lines[:i+2]), len(words))
+                
+                start_word = words[start_index]
+                end_word = words[end_index - 1]
+                
+                start_time = start_word['start']
+                end_time = end_word['end']
+                
+                # Ensure minimum duration
+                duration = end_time - start_time
+                min_duration = max(len(subtitle_text) / 21, 1.5)  # At least 1.5 seconds or 21 characters per second
+                if duration < min_duration:
+                    end_time = start_time + min_duration
+                
+                if format == "srt":
                     f.write(f"{subtitle_count}\n")
                     f.write(f"{format_timestamp(start_time)} --> {format_timestamp(end_time)}\n")
                     f.write(f"{subtitle_text}\n\n")
-                    
-                    subtitle_count += 1
+                elif format == "vtt":
+                    f.write(f"{format_timestamp(start_time, vtt=True)} --> {format_timestamp(end_time, vtt=True)}\n")
+                    f.write(f"{subtitle_text}\n\n")
                 
-                # Check for potential data loss
-                processed_words = ' '.join(lines).split()
-                original_words = ' '.join(word['word'] for word in words).split()
-                if len(processed_words) != len(original_words):
-                    logging.warning(f"Potential data loss detected in segment {segment.get('id', 'unknown')}")
-                    logging.warning(f"Original: {' '.join(original_words)}")
-                    logging.warning(f"Processed: {' '.join(processed_words)}")
+                subtitle_count += 1
+            
+            # Check for potential data loss
+            processed_words = ' '.join(lines).split()
+            original_words = ' '.join(word['word'] for word in words).split()
+            if len(processed_words) != len(original_words):
+                logging.warning(f"Potential data loss detected in segment {segment.get('id', 'unknown')}")
+                logging.warning(f"Original: {' '.join(original_words)}")
+                logging.warning(f"Processed: {' '.join(processed_words)}")
 
     # After processing all segments
     original_text = ' '.join(seg['text'] for seg in segments)
@@ -153,10 +159,21 @@ def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: st
     if original_text != final_text:
         logging.warning("Potential data loss or word order change detected in final output")
 
-def format_timestamp(seconds: float) -> str:
+def write_text_transcription(segments: List[Dict[str, Any]], output_file: str, remove_fillers: bool = True) -> None:
+    with open(output_file, "w", encoding="utf-8") as f:
+        for segment in segments:
+            text = segment['text']
+            if remove_fillers:
+                text = re.sub(r'\b(um|uh)\b', '', text).strip()
+            f.write(text + "\n")
+
+def format_timestamp(seconds: float, vtt: bool = False) -> str:
     m, s = divmod(seconds, 60)
     h, m = divmod(m, 60)
-    return f"{int(h):02d}:{int(m):02d}:{s:06.3f}".replace('.', ',')
+    if vtt:
+        return f"{int(h):02d}:{int(m):02d}:{s:06.3f}"
+    else:
+        return f"{int(h):02d}:{int(m):02d}:{s:06.3f}".replace('.', ',')
 
 def create_download_link(file_path: str, link_text: str) -> str:
     with open(file_path, "rb") as f:
@@ -221,20 +238,22 @@ def main():
                 # Process audio
                 results = process_audio(MODEL_NAME, audio, "transcribe")
                 
-                # Write subtitles
+                # Write subtitles and text transcription
                 vtt_path = str(SAVE_DIR / "transcript.vtt")
                 srt_path = str(SAVE_DIR / "transcript.srt")
+                txt_path = str(SAVE_DIR / "transcript.txt")
                 try:
                     write_subtitles(results["segments"], "vtt", vtt_path)
                     write_subtitles(results["segments"], "srt", srt_path)
+                    write_text_transcription(results["segments"], txt_path)
                 except Exception as subtitle_error:
-                    st.error(f"Error writing subtitles: {str(subtitle_error)}")
-                    logging.exception("Error writing subtitles")
+                    st.error(f"Error writing subtitles or transcription: {str(subtitle_error)}")
+                    logging.exception("Error writing subtitles or transcription")
                 else:
                     # Create zip file with outputs
                     zip_path = str(SAVE_DIR / "transcripts.zip")
                     with ZipFile(zip_path, "w") as zipf:
-                        for file in [vtt_path, srt_path]:
+                        for file in [vtt_path, srt_path, txt_path]:
                             zipf.write(file, os.path.basename(file))
                     
                     # Create download link
