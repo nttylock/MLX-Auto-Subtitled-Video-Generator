@@ -109,7 +109,8 @@ def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: st
         if format == "vtt":
             f.write("WEBVTT\n\n")
         
-        for i, segment in enumerate(segments, start=1):
+        subtitle_count = 1
+        for segment in segments:
             start = segment['start']
             end = segment['end']
             text = segment['text'].strip()
@@ -140,11 +141,13 @@ def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: st
                     f.write(f"{line_start:.3f} --> {line_end:.3f}\n")
                     f.write(f"{line_text}\n\n")
                 elif format == "srt":
-                    f.write(f"{i}.{j//2+1}\n")
+                    f.write(f"{subtitle_count}\n")
                     start_time = f"{int(line_start // 3600):02d}:{int(line_start % 3600 // 60):02d}:{line_start % 60:06.3f}"
                     end_time = f"{int(line_end // 3600):02d}:{int(line_end % 3600 // 60):02d}:{line_end % 60:06.3f}"
                     f.write(f"{start_time.replace('.', ',')} --> {end_time.replace('.', ',')}\n")
                     f.write(f"{line_text}\n\n")
+                
+                subtitle_count += 1
 
 def create_download_link(file_path: str, link_text: str) -> str:
     with open(file_path, "rb") as f:
