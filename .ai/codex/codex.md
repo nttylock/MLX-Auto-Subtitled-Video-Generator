@@ -73,3 +73,11 @@ L002:
 - Application: '/src' is root, '/src/auth' for authentication, '/src/database' for data access
 - Impact: Organized code structure, separation of concerns
 - Related: None
+
+L009:
+
+- Context: /mlx_whisper_transcribe.py
+- Insight: Implemented word-level timestamps and improved subtitle generation
+- Application: Use word_timestamps=True in mlx_whisper.transcribe() for accurate subtitles
+- Impact: Enhanced subtitle accuracy, readability, and synchronization with audio
+- Related: None
