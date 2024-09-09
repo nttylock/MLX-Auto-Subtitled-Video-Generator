@@ -77,7 +77,7 @@ L002:
 L009:
 
 - Context: /mlx_whisper_transcribe.py
-- Insight: Implemented word-level timestamps and improved subtitle generation
-- Application: Use word_timestamps=True in mlx_whisper.transcribe() for accurate subtitles
-- Impact: Enhanced subtitle accuracy, readability, and synchronization with audio
+- Insight: Implemented word-level timestamps, improved subtitle generation, and added data loss detection
+- Application: Use word_timestamps=True in mlx_whisper.transcribe(), limit subtitles to 2 lines max, and log potential data loss
+- Impact: Enhanced subtitle accuracy, readability, synchronization, and data integrity verification
 - Related: None

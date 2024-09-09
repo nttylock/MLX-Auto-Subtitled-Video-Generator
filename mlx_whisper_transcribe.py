@@ -85,7 +85,7 @@ def process_audio(model_path: str, audio: mx.array, task: str) -> Dict[str, Any]
         logging.error(f"Unexpected error in mlx_whisper.{task}: {e}")
         raise
 
-def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: str) -> None:
+def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: str, remove_fillers: bool = True) -> None:
     with open(output_file, "w", encoding="utf-8") as f:
         if format == "srt":
             subtitle_count = 1
@@ -94,12 +94,9 @@ def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: st
                 if not words:
                     continue
                 
-                start_time = words[0]['start']
-                end_time = words[-1]['end']
                 text = ' '.join(word['word'] for word in words)
-                
-                # Remove filler sounds
-                text = re.sub(r'\b(um|uh)\b', '', text).strip()
+                if remove_fillers:
+                    text = re.sub(r'\b(um|uh)\b', '', text).strip()
                 
                 # Split into lines of maximum 42 characters
                 lines = []
@@ -116,17 +113,45 @@ def write_subtitles(segments: List[Dict[str, Any]], format: str, output_file: st
                 if current_line:
                     lines.append(' '.join(current_line))
                 
-                # Ensure minimum duration
-                duration = end_time - start_time
-                min_duration = max(len(text) / 21, 1.5)  # At least 1.5 seconds or 21 characters per second
-                if duration < min_duration:
-                    end_time = start_time + min_duration
+                # Group lines into subtitles with a maximum of 2 lines each
+                for i in range(0, len(lines), 2):
+                    subtitle_lines = lines[i:i+2]
+                    subtitle_text = '\n'.join(subtitle_lines)
+                    
+                    start_index = sum(len(line.split()) for line in lines[:i])
+                    end_index = min(sum(len(line.split()) for line in lines[:i+2]), len(words))
+                    
+                    start_word = words[start_index]
+                    end_word = words[end_index - 1]
+                    
+                    start_time = start_word['start']
+                    end_time = end_word['end']
+                    
+                    # Ensure minimum duration
+                    duration = end_time - start_time
+                    min_duration = max(len(subtitle_text) / 21, 1.5)  # At least 1.5 seconds or 21 characters per second
+                    if duration < min_duration:
+                        end_time = start_time + min_duration
+                    
+                    f.write(f"{subtitle_count}\n")
+                    f.write(f"{format_timestamp(start_time)} --> {format_timestamp(end_time)}\n")
+                    f.write(f"{subtitle_text}\n\n")
+                    
+                    subtitle_count += 1
                 
-                f.write(f"{subtitle_count}\n")
-                f.write(f"{format_timestamp(start_time)} --> {format_timestamp(end_time)}\n")
-                f.write('\n'.join(lines) + "\n\n")
-                
-                subtitle_count += 1
+                # Check for potential data loss
+                processed_words = ' '.join(lines).split()
+                original_words = ' '.join(word['word'] for word in words).split()
+                if len(processed_words) != len(original_words):
+                    logging.warning(f"Potential data loss detected in segment {segment.get('id', 'unknown')}")
+                    logging.warning(f"Original: {' '.join(original_words)}")
+                    logging.warning(f"Processed: {' '.join(processed_words)}")
+
+    # After processing all segments
+    original_text = ' '.join(seg['text'] for seg in segments)
+    final_text = ' '.join(line.strip() for line in open(output_file, 'r', encoding='utf-8').readlines() if line.strip() and not line[0].isdigit() and '-->' not in line)
+    if original_text != final_text:
+        logging.warning("Potential data loss or word order change detected in final output")
 
 def format_timestamp(seconds: float) -> str:
     m, s = divmod(seconds, 60)
