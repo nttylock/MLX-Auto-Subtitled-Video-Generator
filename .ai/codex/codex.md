@@ -81,3 +81,27 @@ L009:
 - Application: Use word_timestamps=True in mlx_whisper.transcribe(), limit subtitles to 2 lines max, and log potential data loss
 - Impact: Enhanced subtitle accuracy, readability, synchronization, and data integrity verification with confirmed functionality
 - Related: None
+
+L010:
+
+- Context: /mlx_whisper_transcribe.py
+- Insight: Refactored code for improved maintainability and readability
+- Application: Separate concerns into logical sections, create smaller functions, and improve error handling
+- Impact: Easier to maintain and extend the codebase without introducing regressions
+- Related: L009
+
+L011:
+
+- Context: /mlx_whisper_transcribe.py
+- Insight: Further refactoring improved code organization and modularity
+- Application: Group related functions, use type hints, and create dedicated UI functions
+- Impact: Enhanced code readability, maintainability, and easier future extensions
+- Related: L009, L010
+
+L012:
+
+- Context: /mlx_whisper_transcribe.py
+- Insight: Implemented robust error handling and logging throughout the script
+- Application: Use try-except blocks and logging.error() for better error tracking
+- Impact: Improved debugging capabilities and user-friendly error messages
+- Related: L010, L011
