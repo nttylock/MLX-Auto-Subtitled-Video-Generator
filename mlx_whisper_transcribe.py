@@ -30,6 +30,20 @@ LOCAL_DIR = APP_DIR / "local_video"
 LOCAL_DIR.mkdir(exist_ok=True)
 SAVE_DIR = LOCAL_DIR / "output"
 SAVE_DIR.mkdir(exist_ok=True)
+LANGUAGES = {
+    "Detect automatically": None,
+    "English": "en",
+    "Spanish": "es",
+    "French": "fr",
+    "German": "de",
+    "Italian": "it",
+    "Portuguese": "pt",
+    "Dutch": "nl",
+    "Russian": "ru",
+    "Chinese": "zh",
+    "Japanese": "ja",
+    "Korean": "ko"
+}
 
 # Utility functions
 @st.cache_data
@@ -52,12 +66,14 @@ def prepare_audio(audio_path: str) -> mx.array:
     audio_array = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
     return mx.array(audio_array)
 
-def process_audio(model_path: str, audio: mx.array, task: str) -> Dict[str, Any]:
-    logging.info(f"Processing audio with model: {model_path}, task: {task}")
+def process_audio(model_path: str, audio: mx.array, task: str, language: str = None) -> Dict[str, Any]:
+    logging.info(f"Processing audio with model: {model_path}, task: {task}, language: {language}")
     try:
+        decode_options = {"language": language} if language else {}
+
         if task.lower() == "transcribe":
             results = mlx_whisper.transcribe(
-                audio, path_or_hf_repo=model_path, fp16=False, verbose=True, word_timestamps=True
+                audio, path_or_hf_repo=model_path, fp16=False, verbose=True, word_timestamps=True, **decode_options
             )
             logging.info(f"{task.capitalize()} completed successfully")
             return results
@@ -191,7 +207,7 @@ def render_header():
 
 def render_model_selection():
     selected_model = st.selectbox("Select Whisper Model", list(MODELS.keys()), index=4)
-    if selected_model == "Distil Large v3":
+    if selected_model == "Distil Large v3 (English)":
         st.info("""
         **Distil Large v3 Model**
         
@@ -199,20 +215,19 @@ def render_model_selection():
         - Runs approximately 40 times faster than real-time on M1 Max chips
         - Can transcribe 12 minutes of audio in just 18 seconds
         - Provides a great balance between speed and accuracy
-        - Note: This model is optimized for English language transcription only.
         
         Ideal for processing longer videos or when you need quick results without sacrificing too much accuracy.
         """)
     return MODELS[selected_model]
 
-def process_video(input_file, model_name):
+def process_video(input_file, model_name, language):
     try:
         input_path = str(SAVE_DIR / "input.mp4")
         with open(input_path, "wb") as f:
             f.write(input_file.read())
         
         audio = prepare_audio(input_path)
-        results = process_audio(model_name, audio, "transcribe")
+        results = process_audio(model_name, audio, "transcribe", language)
         
         vtt_path = str(SAVE_DIR / "transcript.vtt")
         srt_path = str(SAVE_DIR / "transcript.srt")
@@ -246,10 +261,13 @@ def main():
     render_header()
     input_file = st.file_uploader("Upload Video File", type=["mp4", "avi", "mov", "mkv"])
     model_name = render_model_selection()
-    
+   
+    selected_language = st.selectbox("Select language", list(LANGUAGES.keys()))
+    language = LANGUAGES[selected_language]
+
     if input_file and st.button("Transcribe"):
         with st.spinner(f"Transcribing the video using {model_name} model..."):
-            process_video(input_file, model_name)
+            process_video(input_file, model_name, language)
 
 if __name__ == "__main__":
     main()
