@@ -199,6 +199,7 @@ def render_model_selection():
         - Runs approximately 40 times faster than real-time on M1 Max chips
         - Can transcribe 12 minutes of audio in just 18 seconds
         - Provides a great balance between speed and accuracy
+        - Note: This model is optimized for English language transcription only.
         
         Ideal for processing longer videos or when you need quick results without sacrificing too much accuracy.
         """)
