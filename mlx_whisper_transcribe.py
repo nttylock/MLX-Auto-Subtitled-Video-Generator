@@ -218,7 +218,10 @@ def render_model_selection():
         
         Ideal for processing longer videos or when you need quick results without sacrificing too much accuracy.
         """)
-    return MODELS[selected_model]
+    if selected_model in ["Small English (Q4)", "Distil Large v3 (English)"]:
+        return MODELS[selected_model], True
+    else:
+        return MODELS[selected_model], False
 
 def process_video(input_file, model_name, language):
     try:
@@ -260,9 +263,13 @@ def main():
     st.set_page_config(page_title="Auto Subtitled Video Generator", page_icon=":movie_camera:", layout="wide")
     render_header()
     input_file = st.file_uploader("Upload Video File", type=["mp4", "avi", "mov", "mkv"])
-    model_name = render_model_selection()
+    model_name, is_language_locked = render_model_selection()
    
-    selected_language = st.selectbox("Select language", list(LANGUAGES.keys()))
+    if is_language_locked:
+        selected_language = "English"
+        st.selectbox("Select language", ["English"], disabled=True)
+    else:
+        selected_language = st.selectbox("Select language", list(LANGUAGES.keys()))
     language = LANGUAGES[selected_language]
 
     if input_file and st.button("Transcribe"):
