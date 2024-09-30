@@ -2,12 +2,6 @@
 
 This Streamlit application allows users to upload video files and generate accurate transcripts using Apple's MLX framework.
 
-Follow me on X: [@RayFernando1337](https://x.com/rayfernando1337/)
-
-YouTube: [@RayFernando1337](https://www.youtube.com/@rayfernando1337)
-
-[Watch the demo video](https://github.com/user-attachments/assets/937ad360-6df2-4ea7-a3d0-6d9b22a6404a)
-
 ## Important Note
 
 ⚠️ This application is designed to run on Apple Silicon (M series) Macs only. It utilizes the MLX framework, which is optimized for Apple's custom chips.
@@ -108,4 +102,4 @@ For any persistent problems, please open an issue in the repository.
 
 ## Acknowledgements
 
-This project is a fork of the [original Auto-Subtitled Video Generator](https://github.com/BatuhanYilmaz26/Auto-Subtitled-Video-Generator) by Batuhan Yilmaz. I deeply appreciate the contribution to the open-source community.
+This project is a fork of the [original Auto-Subtitled Video Generator](https://github.com/BatuhanYilmaz26/Auto-Subtitled-Video-Generator) by Batuhan Yilmaz. I deeply appreciate the contribution to the open-source community. Project made by [Ray Fernando](https://github.com/RayFernando1337/).
