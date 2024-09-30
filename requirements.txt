@@ -1,6 +1,6 @@
 streamlit
 streamlit-lottie
-mlx
-mlx-whisper
+mlx==0.11.0
+mlx-whisper==0.3.0
 requests
 numpy
